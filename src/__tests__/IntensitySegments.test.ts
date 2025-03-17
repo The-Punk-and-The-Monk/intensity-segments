@@ -1,3 +1,4 @@
+import { ValidationError } from '../errors/ValidationError';
 import { IntensitySegments } from '../IntensitySegments';
 
 describe('IntensitySegments', () => {
@@ -57,10 +58,6 @@ describe('IntensitySegments', () => {
       expect(segments.toString()).toBe('[[10,-1],[20,0],[30,-1],[40,0]]');
     });
 
-    it('should ignore invalid ranges', () => {
-      segments.add(30, 10, 1); // invalid range (from > to)
-      expect(segments.toString()).toBe('[]');
-    });
 
     it('should ignore zero amount changes', () => {
       segments.add(10, 30, 0);
@@ -132,5 +129,80 @@ describe('IntensitySegments', () => {
       segments.add(10, 20, -3);
       expect(segments.toString()).toBe('[]');
     });
+
+    describe('boundary values', () => {
+      it('should handle negative coordinates', () => {
+        segments.add(-20, -10, 1);
+        expect(segments.toString()).toBe('[[-20,1],[-10,0]]');
+      });
+
+      it('should handle MAX_SAFE_INTEGER boundaries', () => {
+        const max = Number.MAX_SAFE_INTEGER;
+        segments.add(max - 100, max, 1);
+        expect(segments.toString()).toBe(`[[${max-100},1],[${max},0]]`);
+      });
+    });
+
+    describe('additional number cases', () => {
+      it('should handle MIN_SAFE_INTEGER boundaries', () => {
+        const min = Number.MIN_SAFE_INTEGER;
+        segments.add(min, min + 100, 1);
+        expect(segments.toString()).toBe(`[[${min},1],[${min + 100},0]]`);
+      });
+    });
+
+    describe('boundary behavior', () => {
+      it('should handle identical boundaries with different intensities', () => {
+        segments.add(10, 20, 1);
+        segments.add(10, 20, 2);
+        expect(segments.toString()).toBe('[[10,3],[20,0]]');
+      });
+
+      it('should handle multiple segments with same boundaries', () => {
+        segments.add(10, 20, 1);
+        segments.add(10, 20, 2);
+        segments.add(10, 20, -3);
+        expect(segments.toString()).toBe('[]');
+      });
+    });
+
+    describe('performance edge cases', () => {
+      it('should handle many small adjacent segments', () => {
+        for (let i = 0; i < 100; i++) {
+          segments.add(i, i + 1, 1);
+        }
+        expect(segments.toString()).toBe('[[0,1],[100,0]]');
+      });
+
+      it('should handle many overlapping segments', () => {
+        for (let i = 0; i < 100; i++) {
+          segments.add(0, 100 - i, 1);
+        }
+        expect(segments.toString()).not.toBe('[]');
+      });
+    });
   });
-}); 
+
+  describe('input validation', () => {
+    it('should throw for non-integer boundaries', () => {
+        expect(() => segments.add(10.5, 20, 1)).toThrow(ValidationError);
+        expect(() => segments.add(10, 20.5, 1)).toThrow(ValidationError);
+    });
+
+    it('should throw for invalid numbers', () => {
+        expect(() => segments.add(NaN, 20, 1)).toThrow(ValidationError);
+        expect(() => segments.add(Infinity, 20, 1)).toThrow(ValidationError);
+        expect(() => segments.add(-Infinity, 20, 1)).toThrow(ValidationError);
+    });
+
+    it('should throw for null/undefined values', () => {
+        expect(() => segments.add(null as any, 20, 1)).toThrow(ValidationError);
+        expect(() => segments.add(undefined as any, 20, 1)).toThrow(ValidationError);
+    });
+
+    it('should throw for invalid ranges', () => {
+        expect(() => segments.add(20, 10, 1)).toThrow(ValidationError);
+        expect(() => segments.add(10, 10, 1)).toThrow(ValidationError);
+    });
+  });
+});

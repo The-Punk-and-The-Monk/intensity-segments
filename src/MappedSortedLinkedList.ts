@@ -1,5 +1,3 @@
-
-// Replace with new implementation
 class NumberNode {
     public value: number;
     public prev?: NumberNode;
@@ -20,14 +18,31 @@ class MappedSortedLinkedList {
     private head?: NumberNode;
     private tail?: NumberNode;
     private size: number;
-    // Map to store value -> node mapping for quick lookup
     private valueMap: Map<number, NumberNode>;
+    private numbers: number[]; // New array for binary search
 
     constructor() {
         this.head = undefined;
         this.tail = undefined;
         this.size = 0;
         this.valueMap = new Map<number, NumberNode>();
+        this.numbers = []; // Initialize empty array
+    }
+
+    private binarySearch(value: number): number {
+        let left = 0;
+        let right = this.numbers.length - 1;
+
+        while (left <= right) {
+            const mid = Math.floor((left + right) / 2);
+            if (this.numbers[mid] === value) return mid;
+            if (this.numbers[mid] < value) {
+                left = mid + 1;
+            } else {
+                right = mid - 1;
+            }
+        }
+        return left; // Return insertion point
     }
 
     public length(): number {
@@ -57,90 +72,55 @@ class MappedSortedLinkedList {
         return null;
     }
 
-    /**
-     * Inserts a value in the correct sorted position
-     * @param value The numeric value to insert
-     * @returns true if insertion was successful, false otherwise
-     */
     public insert(value: number): boolean {
-        // Check if value already exists in list
-        if (this.valueMap.has(value)) {
-            return false; // Value already exists
+        if (this.contains(value)) {
+            return false;
         }
 
+        const insertIndex = this.binarySearch(value);
+        this.numbers.splice(insertIndex, 0, value);
+
         const newNode = new NumberNode(value);
-        
-        // Case 1: Empty list
-        if (this.isEmpty()) {
-            this.head = newNode;
-            this.tail = newNode;
-            this.valueMap.set(value, newNode);
-            this.size++;
-            return true;
-        }
-        
-        // Case 2: Insert at the beginning (smaller than head)
-        if (value < this.head!.value) {
-            newNode.next = this.head;
-            this.head!.prev = newNode;
-            this.head = newNode;
-            this.valueMap.set(value, newNode);
-            this.size++;
-            return true;
-        }
-        
-        // Case 3: Insert at the end (larger than tail)
-        if (value > this.tail!.value) {
-            newNode.prev = this.tail;
-            this.tail!.next = newNode;
-            this.tail = newNode;
-            this.valueMap.set(value, newNode);
-            this.size++;
-            return true;
-        }
-        
-        // Case 4: Insert in the middle
-        // Find the correct position for insertion (the node just greater than the value)
-        let current = this.head;
-        while (current && current.value < value) {
-            current = current.next;
-        }
-        
-        // At this point, current should be the node just greater than value
-        // Insert newNode before current
-        newNode.next = current;
-        newNode.prev = current!.prev;
-        current!.prev!.next = newNode;
-        current!.prev = newNode;
-        
         this.valueMap.set(value, newNode);
+
+        if (this.isEmpty()) {
+            this.head = this.tail = newNode;
+        } else {
+            if (insertIndex === 0) {
+                newNode.next = this.head;
+                this.head!.prev = newNode;
+                this.head = newNode;
+            } else if (insertIndex === this.size) {
+                this.tail!.next = newNode;
+                newNode.prev = this.tail;
+                this.tail = newNode;
+            } else {
+                const prevNode = this.getNodeAt(insertIndex - 1)!;
+                newNode.next = prevNode.next;
+                newNode.prev = prevNode;
+                prevNode.next!.prev = newNode;
+                prevNode.next = newNode;
+            }
+        }
+
         this.size++;
         return true;
     }
 
     public remove(value: number): boolean {
-        const nodeToRemove = this.valueMap.get(value);
+        const index = this.binarySearch(value);
+        if (index >= this.numbers.length || this.numbers[index] !== value) {
+            return false;
+        }
+
+        this.numbers.splice(index, 1);
+        const node = this.valueMap.get(value)!;
         
-        if (!nodeToRemove) {
-            return false; // Value not found
-        }
+        if (node.prev) node.prev.next = node.next;
+        if (node.next) node.next.prev = node.prev;
+        if (node === this.head) this.head = node.next;
+        if (node === this.tail) this.tail = node.prev;
 
-        // Update surrounding nodes
-        if (nodeToRemove.prev) {
-            nodeToRemove.prev.next = nodeToRemove.next;
-        } else {
-            // Removing head
-            this.head = nodeToRemove.next;
-        }
-
-        if (nodeToRemove.next) {
-            nodeToRemove.next.prev = nodeToRemove.prev;
-        } else {
-            // Removing tail
-            this.tail = nodeToRemove.prev;
-        }
-
-        // Remove from map
         this.valueMap.delete(value);
         this.size--;
         return true;
@@ -173,30 +153,10 @@ class MappedSortedLinkedList {
     }
 
     public indexOf(value: number): number {
-        if (!this.valueMap.has(value)) {
-            return -1;
-        }
-
-        // We need to traverse the list to find the index
-        let index = 0;
-        let current = this.head;
-        
-        while (current) {
-            if (current.value === value) {
-                return index;
-            }
-            current = current.next;
-            index++;
-        }
-        
-        return -1; // This should never happen if valueMap is accurate
+        const index = this.binarySearch(value);
+        return (index < this.numbers.length && this.numbers[index] === value) ? index : -1;
     }
 
-    /**
-     * Gets the node at the specified index
-     * @param index The index of the node to get
-     * @returns The node at the index or null if invalid index
-     */
     public getNodeAt(index: number): NumberNode | null {
         if (index < 0 || index >= this.size) {
             return null;
@@ -228,21 +188,11 @@ class MappedSortedLinkedList {
         return current || null;
     }
 
-    /**
-     * Gets the value at the specified index
-     * @param index The index of the value to get
-     * @returns The value at the index or null if invalid index
-     */
     public get(index: number): number | null {
         const node = this.getNodeAt(index);
         return node ? node.value : null;
     }
 
-    /**
-     * Finds the smallest value that is greater than or equal to the given value
-     * @param value The value to search for
-     * @returns The ceiling value or null if no such value exists
-     */
     public ceiling(value: number): number | null {
         // If value exists in the list, return it
         if (this.valueMap.has(value)) {
@@ -268,11 +218,6 @@ class MappedSortedLinkedList {
         return current ? current.value : null;
     }
 
-    /**
-     * Finds the largest value that is less than or equal to the given value
-     * @param value The value to search for
-     * @returns The floor value or null if no such value exists
-     */
     public floor(value: number): number | null {
         // If value exists in the list, return it
         if (this.valueMap.has(value)) {
@@ -298,10 +243,6 @@ class MappedSortedLinkedList {
         return current ? current.value : null;
     }
 
-    /**
-     * Returns an array representation of the linked list
-     * @returns array containing all values in order
-     */
     public toArray(): number[] {
         const result: number[] = [];
         let current = this.head;
@@ -314,12 +255,12 @@ class MappedSortedLinkedList {
         return result;
     }
 
-    /**
-     * Returns a string representation of the linked list
-     * @returns String in format [value1,value2,...]
-     */
     public toString(): string {
         return `[${this.toArray().join(',')}]`;
+    }
+
+    public find(value: number): NumberNode | null {
+        return this.valueMap.get(value) || null;
     }
 }
 

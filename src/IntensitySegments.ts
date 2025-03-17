@@ -1,4 +1,5 @@
 import { MappedSortedLinkedList } from "./MappedSortedLinkedList";
+import { ValidationError } from './errors/ValidationError';
 
 export class IntensitySegments {
   /** 
@@ -21,17 +22,43 @@ export class IntensitySegments {
     this.diffs = {};
   }
 
+  private validateInput(from: number, to: number, amount: number): void {
+    // Check if numbers are integers
+    if (!Number.isInteger(from)) {
+      throw new ValidationError(`From value must be an integer, got ${from}`);
+    }
+    if (!Number.isInteger(to)) {
+      throw new ValidationError(`To value must be an integer, got ${to}`);
+    }
+
+    // Check for NaN/Infinity
+    if (!Number.isFinite(from) || !Number.isFinite(to) || !Number.isFinite(amount)) {
+      throw new ValidationError('Values must be finite numbers');
+    }
+
+    // Check for null/undefined
+    if (from == null || to == null || amount == null) {
+      throw new ValidationError('Values cannot be null or undefined');
+    }
+
+    // Check range
+    if (from >= to) {
+      throw new ValidationError(`Invalid range: from (${from}) must be less than to (${to})`);
+    }
+  }
+
   /**
    * Adds an amount to the intensity of a range [from, to).
    * 
-   * Time complexity: O(n)
+   * Time complexity: O(lgn)
    * 
    * @param from - Start point (inclusive)
    * @param to - End point (exclusive)
    * @param amount - Amount to add to intensity
    */
   public add(from: number, to: number, amount: number): void {
-    if (from >= to || amount === 0) {
+    this.validateInput(from, to, amount);
+    if (amount === 0) {
       return;
     }
 
@@ -59,13 +86,14 @@ export class IntensitySegments {
   /**
    * Sets the intensity of a range [from, to) to a specific value.
    * 
-   * Time complexity: O(n)
+   * Time complexity: O(lgn)
    * 
    * @param from - Start point (inclusive)
    * @param to - End point (exclusive)
    * @param amount - Intensity value to set
    */
   public set(from: number, to: number, amount: number): void {
+    this.validateInput(from, to, amount);
     if (from >= to) {
       return;
     }
@@ -133,4 +161,4 @@ export class IntensitySegments {
 
     return `[${segments.map(([point, intensity]) => `[${point},${intensity}]`).join(',')}]`;
   }
-} 
+}

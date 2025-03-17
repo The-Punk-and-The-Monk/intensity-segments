@@ -13,6 +13,7 @@ All intensities start at 0, and the class provides methods to update or set inte
 To run the tests:
 
 ```bash
+npm i
 npm test
 ```
 
